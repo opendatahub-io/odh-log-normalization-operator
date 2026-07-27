@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-normalizer-operator
+  namespace: log-normalizer-system
+  labels:
+    app: log-normalizer-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-normalizer-operator
+  template:
+    metadata:
+      labels:
+        app: log-normalizer-operator
+    spec:
+      serviceAccountName: log-normalizer-operator
+      containers:
+        - name: operator
+          image: operator:latest
+          command: ["/operator"]
+          args:
+            - --leader-elect
+          env:
+            - name: RELATED_IMAGE_NORMALIZER
+              value: normalizer:latest
+          ports:
+            - containerPort: 9443
+              name: webhook-server
+              protocol: TCP
+            - containerPort: 8080
+              name: metrics
+              protocol: TCP
+            - containerPort: 8081
+              name: health
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: webhook-tls
+              mountPath: /tmp/k8s-webhook-server/serving-certs
+              readOnly: true
+      volumes:
+        - name: webhook-tls
+          secret:
+            secretName: log-normalizer-webhook-tls
+            optional: true

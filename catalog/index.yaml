@@ -1,0 +1,15 @@
+---
+schema: olm.package
+name: log-normalizer-operator
+defaultChannel: alpha
+---
+schema: olm.channel
+name: alpha
+package: log-normalizer-operator
+entries:
+  - name: log-normalizer-operator.v0.1.0
+---
+schema: olm.bundle
+name: log-normalizer-operator.v0.1.0
+package: log-normalizer-operator
+image: BUNDLE_IMG_PLACEHOLDER

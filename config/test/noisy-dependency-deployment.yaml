@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noisy-dependency
+  namespace: log-normalizer-test
+  labels:
+    app: noisy-dependency
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: noisy-dependency
+  template:
+    metadata:
+      labels:
+        app: noisy-dependency
+    spec:
+      containers:
+        - name: noisy
+          image: busybox:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              while true; do
+                # App structured log
+                echo '{"level":"info","msg":"handling request","request_id":"abc-123"}'
+
+                # MongoDB driver style (plain, no structure)
+                echo "2024/01/15 10:30:00 [conn] connection pool monitor: pool size=5 available=3 in_use=2"
+                echo "2024/01/15 10:30:00 [topology] server description changed: {addr: mongo:27017, type: RSPrimary}"
+
+                # Redis client logs
+                echo "redis: 2024/01/15 10:30:01 sentinel.go:420: sentinel: discovered new sentinel for master mymaster at 10.0.0.5:26379"
+
+                # gRPC internal logs
+                echo "INFO: 2024/01/15 10:30:02 [core] [Channel #1] Channel Connectivity change to READY"
+                echo "WARNING: 2024/01/15 10:30:02 [core] grpc: addrConn.createTransport failed to connect to {Addr: \"10.0.0.3:50051\"}"
+
+                # etcd client
+                echo '{"level":"warn","ts":"2024-01-15T10:30:03.456Z","caller":"clientv3/retry_interceptor.go:62","msg":"retrying of unary invoker failed","target":"endpoint://client/10.0.0.4:2379","attempt":0,"error":"rpc error: code = DeadlineExceeded desc = context deadline exceeded"}'
+
+                sleep 3
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi

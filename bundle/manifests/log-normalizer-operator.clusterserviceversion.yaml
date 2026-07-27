@@ -1,0 +1,178 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  name: log-normalizer-operator.v0.1.0
+  namespace: placeholder
+  annotations:
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "lognormalizer.opendatahub.io/v1alpha1",
+          "kind": "LogNormalizerConfig",
+          "metadata": {
+            "name": "default"
+          },
+          "spec": {
+            "namespaceSelector": {
+              "matchLabels": {
+                "lognormalizer.opendatahub.io/inject": "enabled"
+              }
+            },
+            "sidecarImage": "quay.io/opendatahub/log-normalizer:latest",
+            "outputFormat": "json",
+            "drain": {
+              "similarityThreshold": 0.4,
+              "maxClusters": 1000,
+              "treeDepth": 4
+            },
+            "multiline": {
+              "enabled": true,
+              "maxLines": 100,
+              "flushTimeoutMs": 2000
+            },
+            "consolidators": ["go", "java", "python"]
+          }
+        }
+      ]
+    categories: Logging & Tracing
+    description: >-
+      Auto-injects a log-normalizing sidecar into pods that detects log formats,
+      reassembles multiline entries, and emits structured OTel-compatible JSON
+      without requiring pre-configured parsing rules.
+    repository: https://github.com/opendatahub-io/log-normalizer-operator
+spec:
+  displayName: Log Normalizer Operator
+  description: |
+    The Log Normalizer Operator deploys a mutating admission webhook that
+    auto-injects a log-normalizing sidecar into pods. The sidecar uses Drain-based
+    template mining to automatically detect log formats (JSON, logfmt, klog,
+    Zap console, plain text), reassemble multiline entries (Go panics, Java stack
+    traces, Python tracebacks), and emit structured OTel-compatible JSON — all
+    without requiring any application code changes or pre-configured parsing rules.
+
+    ### Features
+    - Zero-config log format detection and normalization
+    - Multiline log reassembly with language-specific consolidators
+    - Drain algorithm for automatic template mining and pattern extraction
+    - OTLP gRPC export to OTel Collector with trace/span ID propagation
+    - Image ENTRYPOINT resolution for containers without explicit commands
+    - Native Kubernetes sidecar injection via mutating webhook
+    - Namespace-level opt-in via label selectors
+    - Pod-level opt-out via annotations
+    - Self-signed TLS certificate bootstrapping (no cert-manager required)
+  maturity: alpha
+  version: 0.1.0
+  replaces: ""
+  minKubeVersion: 1.33.0
+  keywords:
+    - logging
+    - observability
+    - structured-logging
+    - log-parsing
+    - sidecar
+    - opentelemetry
+  maintainers:
+    - name: OpenDataHub
+      email: opendatahub-io@redhat.com
+  provider:
+    name: Red Hat
+  labels:
+    operatorframework.io/os.linux: supported
+  installModes:
+    - type: OwnNamespace
+      supported: true
+    - type: SingleNamespace
+      supported: true
+    - type: MultiNamespace
+      supported: false
+    - type: AllNamespaces
+      supported: true
+  install:
+    strategy: deployment
+    spec:
+      clusterPermissions:
+        - serviceAccountName: log-normalizer-operator
+          rules:
+            - apiGroups: [""]
+              resources: ["namespaces", "pods"]
+              verbs: ["get", "list", "watch"]
+            - apiGroups: [""]
+              resources: ["secrets"]
+              verbs: ["get", "list", "watch", "create"]
+            - apiGroups: [""]
+              resources: ["services"]
+              verbs: ["get", "list", "watch", "create", "update"]
+            - apiGroups: ["admissionregistration.k8s.io"]
+              resources: ["mutatingwebhookconfigurations"]
+              verbs: ["get", "list", "watch", "create", "update", "delete"]
+            - apiGroups: ["lognormalizer.opendatahub.io"]
+              resources: ["lognormalizerconfigs"]
+              verbs: ["get", "list", "watch", "create"]
+            - apiGroups: ["lognormalizer.opendatahub.io"]
+              resources: ["lognormalizerconfigs/status"]
+              verbs: ["update", "patch"]
+            - apiGroups: ["coordination.k8s.io"]
+              resources: ["leases"]
+              verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+            - apiGroups: [""]
+              resources: ["events"]
+              verbs: ["create", "patch"]
+      deployments:
+        - name: log-normalizer-operator
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: log-normalizer-operator
+            template:
+              metadata:
+                labels:
+                  app: log-normalizer-operator
+              spec:
+                serviceAccountName: log-normalizer-operator
+                containers:
+                  - name: operator
+                    image: default-route-openshift-image-registry.apps.rosa.dmoskale.h9lx.p3.openshiftapps.com/log-normalizer-system/log-normalizer-operator:latest
+                    command: ["/operator"]
+                    args:
+                      - --leader-elect
+                    env:
+                      - name: RELATED_IMAGE_NORMALIZER
+                        value: default-route-openshift-image-registry.apps.rosa.dmoskale.h9lx.p3.openshiftapps.com/log-normalizer-system/log-normalizer:latest
+                    ports:
+                      - containerPort: 9443
+                        name: webhook-server
+                        protocol: TCP
+                      - containerPort: 8080
+                        name: metrics
+                        protocol: TCP
+                      - containerPort: 8081
+                        name: health
+                        protocol: TCP
+                    livenessProbe:
+                      httpGet:
+                        path: /healthz
+                        port: 8081
+                      initialDelaySeconds: 15
+                      periodSeconds: 20
+                    readinessProbe:
+                      httpGet:
+                        path: /readyz
+                        port: 8081
+                      initialDelaySeconds: 5
+                      periodSeconds: 10
+                    resources:
+                      requests:
+                        cpu: 100m
+                        memory: 64Mi
+                      limits:
+                        cpu: 500m
+                        memory: 256Mi
+  customresourcedefinitions:
+    owned:
+      - name: lognormalizerconfigs.lognormalizer.opendatahub.io
+        version: v1alpha1
+        kind: LogNormalizerConfig
+        displayName: Log Normalizer Config
+        description: >-
+          Configures log normalization sidecar injection for pods in selected namespaces.

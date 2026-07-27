@@ -1,0 +1,21 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: log-normalizer-webhook-cert
+  namespace: log-normalizer-system
+spec:
+  secretName: log-normalizer-webhook-tls
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+  dnsNames:
+    - log-normalizer-webhook.log-normalizer-system.svc
+    - log-normalizer-webhook.log-normalizer-system.svc.cluster.local
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: log-normalizer-system
+spec:
+  selfSigned: {}

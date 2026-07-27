@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: panic-generator
+  namespace: log-normalizer-test
+  labels:
+    app: panic-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: panic-generator
+  template:
+    metadata:
+      labels:
+        app: panic-generator
+    spec:
+      containers:
+        - name: panicker
+          image: busybox:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              while true; do
+                echo '{"level":"info","ts":"2024-01-15T10:30:00Z","msg":"starting work"}'
+
+                # Simulate a Go panic with goroutine dump
+                cat <<'PANIC'
+              panic: runtime error: index out of range [5] with length 3
+
+              goroutine 1 [running]:
+              main.processItems(0xc000124000, 0x3, 0x8)
+              	/app/main.go:42 +0x1a4
+              main.handleRequest(0xc0001a2000)
+              	/app/handler.go:87 +0x2f3
+              net/http.(*ServeMux).ServeHTTP(0xc000198000, {0x7f4a8c0, 0xc0001a2000}, 0xc000188200)
+              	/usr/local/go/src/net/http/server.go:2424 +0x149
+              net/http.serverHandler.ServeHTTP({0xc000194000}, {0x7f4a8c0, 0xc0001a2000}, 0xc000188200)
+              	/usr/local/go/src/net/http/server.go:2938 +0x316
+              PANIC
+
+                echo '{"level":"info","ts":"2024-01-15T10:30:05Z","msg":"recovered, resuming"}'
+                sleep 5
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi

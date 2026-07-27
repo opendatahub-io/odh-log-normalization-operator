@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: json-pretty-printer
+  namespace: log-normalizer-test
+  labels:
+    app: json-pretty-printer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: json-pretty-printer
+  template:
+    metadata:
+      labels:
+        app: json-pretty-printer
+    spec:
+      containers:
+        - name: printer
+          image: busybox:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              while true; do
+                echo '{'
+                echo '  "level": "info",'
+                echo '  "msg": "request processed",'
+                echo '  "details": {'
+                echo '    "method": "GET",'
+                echo '    "path": "/api/v1/users",'
+                echo '    "status": 200,'
+                echo '    "latency_ms": 42'
+                echo '  }'
+                echo '}'
+                echo '{"level":"debug","msg":"cache hit","key":"user:12345"}'
+                echo '{'
+                echo '  "level": "error",'
+                echo '  "msg": "database connection failed",'
+                echo '  "error": "dial tcp 10.0.0.5:5432: connect: connection refused"'
+                echo '}'
+                sleep 5
+              done

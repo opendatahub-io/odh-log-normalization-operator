@@ -1,0 +1,30 @@
+apiVersion: lognormalizer.opendatahub.io/v1alpha1
+kind: LogNormalizerConfig
+metadata:
+  name: default
+spec:
+  namespaceSelector:
+    matchLabels:
+      lognormalizer.opendatahub.io/inject: "enabled"
+  sidecarImage: <YOUR_REGISTRY>/log-normalizer:latest  # e.g. image-registry.openshift-image-registry.svc:5000/log-normalizer-system/log-normalizer:latest
+  otlpEndpoint: <collector-service>.<namespace>.svc:4317 # enables otlp export
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  outputFormat: json
+  drain:
+    similarityThreshold: 0.4
+    maxClusters: 1000
+    treeDepth: 4
+  multiline:
+    enabled: true
+    maxLines: 100
+    flushTimeoutMs: 2000
+  consolidators:
+    - go
+    - java
+    - python

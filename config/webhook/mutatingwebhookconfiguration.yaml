@@ -1,0 +1,23 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: log-normalizer-injector
+webhooks:
+  - name: pod-injector.lognormalizer.opendatahub.io
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Ignore
+    reinvocationPolicy: IfNeeded
+    clientConfig:
+      service:
+        name: log-normalizer-webhook
+        namespace: log-normalizer-system
+        path: /mutate-pods
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE"]
+    namespaceSelector:
+      matchLabels:
+        lognormalizer.opendatahub.io/inject: "enabled"
